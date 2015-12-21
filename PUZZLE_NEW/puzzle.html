@@ -1,0 +1,375 @@
+
+<!utilizaremos el estandar de HTML5 >
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<script type="text/javascript">
+	//Variables referentes al canvas 
+	var context;
+	var lienzo;
+	var dificultad;
+	var imageObj;
+	//Variables  referentes al tamaño del puzzle y de las piezas
+	var pieceWidth;
+	var pieceHeight;
+	var puzzleWidth;
+	var puzzleHeight;
+	//Variables necesarias 
+	var value_piezas; //esta variable tiene el valor los puntos donde estan cada trozo del puzzle
+	var point_mouse = {};// guarda el valor de las coordenadas del raton
+	var pos_pieza_push; // nos guardamos la posicion donde esta la pieza pulsada en nuestro array
+	var puzz_play;
+	var pieza_push;
+	/*variables necesarias para tratar los datos del usuario */
+	var user = null;
+	var info_user;
+
+	/*variables necesarias para localstorage */
+
+	var num_move;
+	var minutos=0;
+	var segundos = 0;
+	/*enlazar bien el cronometro con el contenido.*/
+	var contador;
+
+	var img_disponible = ["Universo.jpg","Medusa.jpg","Minions.jpg",
+						"Cocker.jpg","Faro.jpg","Vengadores.jpg","Venecia.jpg"];
+
+	var pos = 0;
+
+	var mov_img = setInterval(move_img,1000);
+
+	//funcion asociada a cambiar de imagen del puzzle
+	function change_img(src){
+		inicio(src);
+	}
+
+	/*funcion que carga el la imagen que se utilizara en el puzzle al igual que evalua el usuario */
+	function inicio(img_defecto){
+		lienzo = document.getElementById('mi_canvas');
+		dificultad =prompt('Ingrese la dificultad','');
+		context = lienzo.getContext('2d');
+		imageObj = new Image();
+		imageObj.src = img_defecto;
+		puzz_play = imageObj.src.split("/")[5];
+		imageObj.onload = function(){
+			//establecemos el tamaño de cada pieza
+			pieceWidth = Math.floor(imageObj.width / dificultad);
+			pieceHeight = Math.floor(imageObj.height / dificultad);
+			//establecemos el total de la imagen
+			puzzleWidth = pieceWidth * dificultad;
+			puzzleHeight = pieceHeight * dificultad
+			//ajustamos el valor del lienzo a la imagen
+			lienzo.width = puzzleWidth;
+			lienzo.height = puzzleHeight;
+			context.drawImage(imageObj,0,0,puzzleWidth ,puzzleHeight,0,0,puzzleWidth,puzzleHeight);
+			/*verificamos si tenemos informacion sobre el usuario*/
+			console.log(user);
+			if (user == null){
+				user = prompt('Introdusca su nombre','');
+				check_users(user);
+			}	
+		}
+	}
+
+	/*funcion que divide las piezas e inicializa los eventos */
+	function piezas(){
+		value_piezas = []
+		var point;
+		var x = 0;
+		var y = 0;
+		for(var i = 0; i < dificultad*dificultad;i++){
+			point = {};
+			point.xs = x;
+			point.ys = y;
+			value_piezas.push(point);
+			x +=pieceWidth;
+			if (x >= puzzleWidth) {
+				x =0
+				y += pieceHeight;
+			}
+		}	
+		
+		value_piezas = shuffleArray(value_piezas);
+		build_puzzle();
+		
+		lienzo.addEventListener("mousedown", function(event){
+			point_mouse = valor_mouse_real(event,lienzo);
+    		for (var i =0; i < value_piezas.length;i++){
+    			var pieza = value_piezas[i];
+	    		if( point_mouse.mx > pieza.x_act &  point_mouse.mx < (pieza.x_act+ pieceWidth)){
+	    			if(point_mouse.my > pieza.y_act & point_mouse.my < (pieza.y_act + pieceHeight)){
+	    				context.clearRect(pieza.x_act,pieza.y_act,pieceWidth,pieceHeight);
+	    				pos_pieza_push = i;
+	    				pieza_push = pieza;
+	    				break	
+	    			}
+	    		}
+    		}
+		},false);
+
+
+		lienzo.addEventListener("mousemove", function(event){	
+			if(pos_pieza_push != null){
+				point_mouse = valor_mouse_real(event,lienzo);
+				update_puzzle();
+			}
+		},false);
+
+		lienzo.addEventListener("mouseup",function(event){
+			console.log("intercambio de piezas");
+			//primero tenemos que obtener las coorndedas del raton para encontrar la pieza para cambiar
+			for(var i=0; i< value_piezas.length;i++){
+				var pieza = value_piezas[i];
+				console.log(pieza);
+				if( point_mouse.mx > pieza.x_act &  point_mouse.mx < (pieza.x_act+ pieceWidth)){
+	    			if(point_mouse.my > pieza.y_act & point_mouse.my < (pieza.y_act + pieceHeight)){
+	    				var pieza_cambio = {};
+	    				pieza_cambio.xs = pieza.xs;
+	    				pieza_cambio.ys = pieza.ys
+		    			/*cambiamosel valor de la pieza donde se activa mouseup por la pieza que 
+		    			seleccionamos para mover*/
+	    				value_piezas[i].xs = pieza_push.xs;
+	    				value_piezas[i].ys = pieza_push.ys;
+						/*cambiamos el valor de la pieza que se movio por la imagen 
+						que activo la funcion mouseup*/
+						value_piezas[pos_pieza_push].xs = pieza_cambio.xs;
+		    			value_piezas[pos_pieza_push].ys = pieza_cambio.ys;
+						break
+	    			}
+				}
+			}
+			pos_pieza_push = null;
+			update_puzzle();	
+		},false);
+	}
+
+	/*constuye el puzzle */
+	function build_puzzle(){
+       	context.clearRect(0,0,puzzleWidth,puzzleHeight);
+		var pieza;
+		var x_act=0;
+		var y_act=0;
+		for (i=0;i< value_piezas.length;i++){
+			pieza = value_piezas[i];
+			pieza.x_act = x_act;
+			pieza.y_act = y_act;
+			context.drawImage(imageObj,pieza.xs,pieza.ys,pieceWidth,pieceHeight,pieza.x_act,pieza.y_act,pieceWidth,pieceHeight);
+			context.strokeRect(x_act, y_act, pieceWidth,pieceHeight);
+            x_act += pieceWidth;
+                if(x_act >= puzzleWidth){
+                    x_act = 0;
+                    y_act += pieceHeight;
+                }
+		}
+	}
+
+	/*funcion que actualiza el puzzle cuando movemos una pieza*/
+	function update_puzzle(){
+		context.clearRect(0,0,puzzleWidth,puzzleHeight);
+		var last_piece = null;
+		for (i=0;i< value_piezas.length;i++){
+			if(pos_pieza_push != i){
+				var pieza = value_piezas[i];
+				context.drawImage(imageObj,pieza.xs,pieza.ys,pieceWidth,pieceHeight,pieza.x_act,pieza.y_act,pieceWidth,pieceHeight);
+				context.strokeRect(pieza.x_act, pieza.y_act, pieceWidth,pieceHeight);
+			}else{
+				last_piece = value_piezas[i];
+			}
+		}
+
+		if(pos_pieza_push != null){
+			context.drawImage(imageObj,last_piece.xs,last_piece.ys,pieceWidth,pieceHeight,point_mouse.mx,point_mouse.my,pieceWidth,pieceHeight);
+			context.strokeRect(last_piece.x_act, last_piece.y_act, pieceWidth,pieceHeight);
+		}else{
+			comprobar_puzzle();	
+		}		
+	}
+
+	//funcion que desordena un array 
+	function shuffleArray(o){
+            for(var j, x, i = o.length; i; j = parseInt(Math.random() * i), x = o[--i], o[i] = o[j], o[j] = x);
+            return o;
+    } 
+
+    /*funcion que me calcula el valor correcto en el que esta el raton de acuerdo a la ventana.*/
+    function valor_mouse_real(event,canvas){
+    	var rect = canvas.getBoundingClientRect();
+    	var coordenada = {};
+    	coordenada.mx = event.clientX - rect.left;
+    	coordenada.my  = event.clientY - rect.top;
+    	return  coordenada;
+    }
+    /*funcion que comprueba si se ha terminado el puzzle */
+    function comprobar_puzzle(){
+    	var end;
+    	for(var i=0;i<value_piezas.length;i++){
+    		var pieza = value_piezas[i];
+    		console.log(pieza);
+    		if((pieza.xs == pieza.x_act) & (pieza.ys == pieza.y_act)){
+    			end = true;
+    			console.log(end);
+    		}else{
+    			end = false
+    			break
+    		}
+    	}
+
+    	if(end){
+    		/*actualizar el canvas con una presentacion de haber terminado,
+    		,paramos el cronometro y actualizamos el contenido del usuario*/
+			build_final(); 
+			clearInterval(contador);
+			updateInfo_user();
+    	}
+    }
+
+    function build_final(){
+    	console.log("Terminado Puzzle");
+    	/*dibujamos la imagen con un mensaje sobre ella */
+    	context.clearRect(0,0,puzzleWidth,puzzleHeight);
+    	context.drawImage(imageObj,0,0,puzzleWidth ,puzzleHeight,0,0,puzzleWidth,puzzleHeight);
+    	/*dibujamos el mensaje de puzzle terminado*/		
+	    context.fillStyle = 'silver';
+	     context.globalAlpha = .6;
+	    context.fillRect(100,puzzleHeight - 40,puzzleWidth - 200,40);
+	    context.font = '20px Arial';
+        context.globalAlpha = 1;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+	    /*pensar en las medidas que se tienen que colocar*/
+	    context.fillText('Puzzle Terminado', puzzleWidth/2, puzzleHeight -25);   
+    }
+
+    /*funciones relacionadas con localStorage*/
+
+    /*evalua si el usuario existe y si no crea una entrada para este usuario*/
+    function check_users(name_user){
+    	info_user = localStorage.getItem(name_user);
+    	if(info_user != null){
+    		write_infor(info_user);
+    	}else{
+    		var items_user = {difil:dificultad,tempo:10000,img_puzzle:"Faro.jpg",terminado:false};
+    		info_user = [];
+    		info_user.push(items_user);
+    		save_user(name_user,info_user);
+    	}
+    }
+
+    /*escribimos el contenido del usuario en la pagina */
+	function write_infor(info_user){
+		var info = JSON.parse(info_user);
+		document.getElementById("user").innerHTML = "Bienvenido "+ user;
+		document.getElementById("name_puzzle").innerHTML = "Puzzle: "+info[0].img_puzzle;
+		document.getElementById("difi_puzzle").innerHTML = "Dificultad: "+info[0].difil;
+		document.getElementById("tempo_puzle").innerHTML = "Tiempo: "+info[0].tempo;
+		if (info[0].terminado == true){
+			document.getElementById("fin_puzzle").innerHTML="Termiando: Si";
+		}else{
+			document.getElementById("fin_puzzle").innerHTML="Termiando: No";
+		}
+		
+	}
+
+	/*guardamos el contenido del usuario en localstorage */
+	function save_user(name_user,list_user){
+		localStorage.setItem(name_user,JSON.stringify(list_user));
+	}
+
+	/*actualizamos el contenido del usuario antes de guardar */
+	function updateInfo_user(){
+		var encontrado = false;
+		for(var i=0; i< info_user.length; i++){
+			var puzzle =info_user[i];
+			if(puzzle.img_puzzle == puzz_play){
+				if(puzzle.tempo > segundos){
+					console.log(segundos);
+					info_user[i].tempo = segundos;
+					info_user[i].terminado=true;
+					encontrado = true;
+				}	
+			}
+		}
+
+		if (encontrado == false){
+			var items_user = {difil:dificultad,tempo:segundos,img_puzzle:puzz_play,terminado:true};
+			//var x = info_user;
+			console.log(items_user);
+    		info_user.push(items_user);
+    		save_user(user,info_user);
+
+		}else{
+			save_user(user,info_user);
+			var ter = localStorage.getItem(user);
+			console.log(ter);
+		}
+	}
+
+	/*funcion que dibuja un cronometro con canvas*/
+	function cronometro(){
+		var cronometro = document.getElementById("cronometro");
+		var context = cronometro.getContext('2d');
+		context.clearRect(0,0,cronometro.width,cronometro.height);
+		context.font = '40pt Calibri';
+	    context.fillStyle = 'blue';
+	    var strin_num = segundos.toString()+ " seg";
+	    context.fillText(strin_num, 10, 50);
+	    segundos = segundos+1;
+	}
+
+	function Init_puzzle(){
+		piezas();
+		contador = setInterval(cronometro, 1000);
+	}
+
+	function End_puzzle(){
+		clearInterval(contador);
+	}
+
+	function move_img(){
+		var imagen_1 = document.getElementById("img_1");
+		var imagen_2 = document.getElementById("img_2");
+		var imagen_3 = document.getElementById("img_3");
+		/*intercambiamos el valor de las imagenes */
+		imagen_1.src = imagen_2.src;
+		imagen_2.src = imagen_3.src;
+		if(pos < img_disponible.length){
+			img_3.src = img_disponible[pos];
+			pos = pos + 1;
+		}else{
+			pos = 0;
+			img_3.src = img_disponible[pos];
+		}
+
+	}
+
+</script>
+</head>
+<body onload="inicio('Faro.jpg')">
+	<header> Puzzle interactivo</header>
+	<article id ="cab_arti">
+			<section id="inf_arti">
+				<canvas id="mi_canvas"></canvas>
+				<canvas id="cronometro"></canvas>
+				<img id ="img_1" src="Medusa.jpg" style ="width:100px;height:100px" onclick="change_img(src)">
+				<img id ="img_2" src="Faro.jpg" style ="width:100px;height:100px" onclick="change_img(src)">
+				<img id ="img_3" src="Venecia.jpg" style ="width:100px;height:100px" onclick="change_img(src)">
+				<button type="button" id ="empezar" onclick="Init_puzzle()">Empezar</button>
+				<button type="button" id = "terminar" onclick="End_puzzle()">Finalizar</button>
+			</section>
+	</article>
+	<aside id ="links_pag">
+		<li> Links de interes</li>
+			<div id = "info_user">
+				<p id="user"></p>
+				<p>-------------------</p>
+				<p id="name_puzzle"></p>
+				<p id="difi_puzzle"></p>
+				<p id="tempo_puzle"></p>
+				<p id ="fin_puzzle"></p>
+			</div>
+	</aside>
+	<footer > SL.Asotiation</footer>
+</body>
+</html>
